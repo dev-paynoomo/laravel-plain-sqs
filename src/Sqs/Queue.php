@@ -7,24 +7,12 @@ use Illuminate\Queue\SqsQueue;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Queue\Jobs\SqsJob;
 
-/**
- * Class CustomSqsQueue
- * @package App\Services
- */
 class Queue extends SqsQueue
 {
-    /**
-     * Create a payload string from the given job and data.
-     *
-     * @param  string  $job
-     * @param  mixed   $data
-     * @param  string  $queue
-     * @return string
-     */
-    protected function createPayload($job, $data = '', $queue = null)
+    protected function createPayload($job, $queue, $data = '', $delay = null)
     {
         if (!$job instanceof DispatcherJob) {
-            return parent::createPayload($job, $data, $queue);
+            return parent::createPayload($job, $queue, $data);
         }
 
         $handlerJob = $this->getClass($queue) . '@handle';
@@ -32,27 +20,19 @@ class Queue extends SqsQueue
         return $job->isPlain() ? json_encode($job->getPayload()) : json_encode(['job' => $handlerJob, 'data' => $job->getPayload()]);
     }
 
-    /**
-     * @param $queue
-     * @return string
-     */
-    private function getClass($queue = null)
+    private function getClass($queue = null): string
     {
-        if (!$queue) return Config::get('sqs-plain.default-handler');
-
-        $queue = end(explode('/', $queue));
+        if (!$queue) {
+            return Config::get('sqs-plain.default-handler');
+        }
+        $queue = explode('/', $queue);
+        $queue = end($queue);
 
         return (array_key_exists($queue, Config::get('sqs-plain.handlers')))
             ? Config::get('sqs-plain.handlers')[$queue]
             : Config::get('sqs-plain.default-handler');
     }
 
-    /**
-     * Pop the next job off of the queue.
-     *
-     * @param  string  $queue
-     * @return \Illuminate\Contracts\Queue\Job|null
-     */
     public function pop($queue = null)
     {
         $queue = $this->getQueue($queue);
@@ -72,22 +52,12 @@ class Queue extends SqsQueue
 
             $response = $this->modifyPayload($response['Messages'][0], $class);
 
-            if (preg_match(
-                '/(5\.[4-8]\..*)|(6\.[0-9]*\..*)|(7\.[0-9]*\..*)|(8\.[0-9]*\..*)|(9\.[0-9]*\..*)|(10\.[0-9]*\..*)|(11\.[0-9]*\..*)/',
-                $this->container->version())
-            ) {
-                return new SqsJob($this->container, $this->sqs, $response, $this->connectionName, $queue);
-            }
-
-            return new SqsJob($this->container, $this->sqs, $queue, $response);
+            return new SqsJob($this->container, $this->sqs, $response, $this->connectionName, $queue);
         }
+
+        return null;
     }
 
-    /**
-     * @param string|array $payload
-     * @param string $class
-     * @return array
-     */
     private function modifyPayload($payload, $class)
     {
         if (! is_array($payload)) $payload = json_decode($payload, true);
@@ -105,12 +75,6 @@ class Queue extends SqsQueue
         return $payload;
     }
 
-    /**
-     * @param string $payload
-     * @param null $queue
-     * @param array $options
-     * @return mixed|null
-     */
     public function pushRaw($payload, $queue = null, array $options = [])
     {
         $payload = json_decode($payload, true);

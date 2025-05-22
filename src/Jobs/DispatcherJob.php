@@ -11,31 +11,18 @@ class DispatcherJob implements ShouldQueue
 {
     use InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * @var mixed
-     */
-    protected $data;
+    protected mixed $data;
 
-    /**
-     * @var bool
-     */
-    protected $plain = false;
+    protected bool $plain = false;
 
-    /**
-     * DispatchedJob constructor.
-     * @param $data
-     */
     public function __construct($data)
     {
         $this->data = $data;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getPayload()
+    public function getPayload(): mixed
     {
-        if (! $this->isPlain()) {
+        if (!$this->isPlain()) {
             return [
                 'job' => app('config')->get('sqs-plain.default-handler'),
                 'data' => $this->data
@@ -45,21 +32,14 @@ class DispatcherJob implements ShouldQueue
         return $this->data;
     }
 
-    /**
-     * @param bool $plain
-     * @return $this
-     */
-    public function setPlain($plain = true)
+    public function setPlain($plain = true): static
     {
         $this->plain = $plain;
 
         return $this;
     }
 
-    /**
-     * @return bool
-     */
-    public function isPlain()
+    public function isPlain(): bool
     {
         return $this->plain;
     }
